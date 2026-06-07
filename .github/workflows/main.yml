@@ -1,0 +1,60 @@
+name: گزارش وضعیت سیستم
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  بررسی-وضعیت:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: دریافت زمان سیستم
+        run: |
+          $timezone = [System.TimeZoneInfo]::Local
+          Write-Host "زمان محلی: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+          Write-Host "منطقه زمانی: $($timezone.DisplayName)"
+          
+      - name: بررسی فضای دیسک
+        run: |
+          $disk = Get-PSDrive -Name C
+          $freeGB = [math]::Round($disk.Free / 1GB, 2)
+          $totalGB = [math]::Round($disk.Used / 1GB + $freeGB, 2)
+          Write-Host "فضای کل: ${totalGB}GB"
+          Write-Host "فضای خالی: ${freeGB}GB"
+          Write-Host "درصد استفاده: $([math]::Round((($totalGB - $freeGB) / $totalGB) * 100, 2))%"
+          
+      - name: اطلاعات شبکه
+        run: |
+          $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
+          Write-Host "آیپی عمومی: $ip"
+          
+      - name: وضعیت سرویس‌ها
+        run: |
+          $services = @("wuauserv", "Dhcp", "Dnscache")
+          foreach ($svc in $services) {
+              $status = (Get-Service -Name $svc -ErrorAction SilentlyContinue).Status
+              Write-Host "سرویس $svc : $status"
+          }
+          
+      - name: ایجاد گزارش خلاصه
+        run: |
+          $report = @"
+          ═══════════════════════════════════════
+          گزارش خودکار سیستم
+          ═══════════════════════════════════════
+          زمان: $(Get-Date)
+          هاست: $env:COMPUTERNAME
+          کاربر: $env:USERNAME
+          سیستم‌عامل: $((Get-ComputerInfo).WindowsProductName)
+          ═══════════════════════════════════════
+          "@
+          Write-Host $report
+          
+      - name: ذخیره لاگ
+        run: |
+          $logFile = "system_check_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+          Get-EventLog -LogName System -Newest 5 | Format-List -Property TimeGenerated, EntryType, Source, Message | Out-File $logFile
+          Write-Host "فایل لاگ ایجاد شد: $logFile"
