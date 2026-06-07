@@ -1,0 +1,53 @@
+name: Linux-SSH
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'
+
+jobs:
+  ssh-session:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: نصب Tailscale
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+
+      - name: اتصال به Tailscale
+        run: |
+          sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=linux-runner-${{ github.run_id }}
+          IP=$(tailscale ip -4)
+          echo "TS_IP=$IP" >> $GITHUB_ENV
+
+      - name: فعال کردن SSH
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssh-server
+          sudo systemctl enable ssh
+          sudo systemctl start ssh
+
+      - name: تنظیم رمز عبور کاربر
+        run: |
+          PASSWORD=$(openssl rand -base64 12)
+          echo "runner:$PASSWORD" | sudo chpasswd
+          echo "SSH_PASS=$PASSWORD" >> $GITHUB_ENV
+
+      - name: نمایش اطلاعات اتصال
+        run: |
+          echo ""
+          echo "========== SSH ACCESS =========="
+          echo "آدرس: ${{ env.TS_IP }}"
+          echo "کاربر: runner"
+          echo "رمز: ${{ env.SSH_PASS }}"
+          echo "دستور: ssh runner@${{ env.TS_IP }}"
+          echo "================================"
+          echo ""
+
+      - name: نگهداری ارتباط
+        run: |
+          while true; do
+            echo "[$(date)] فعال - برای خروج Ctrl+C بزن"
+            sleep 300
+          done
