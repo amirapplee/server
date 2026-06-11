@@ -1,10 +1,10 @@
-name: macOS-Ngrok
+name: macOS-Ngrok-Simple
 
 on:
   workflow_dispatch:
 
 jobs:
-  macos-ngrok:
+  macos:
     runs-on: macos-latest
     timeout-minutes: 360
     
@@ -12,34 +12,19 @@ jobs:
       - name: فعال کردن SSH
         run: sudo systemsetup -setremotelogin on
       
-      - name: ساخت رمز ساده
+      - name: نصب Ngrok
         run: |
-          # ساده‌ترین روش - تنظیم رمز مستقیم
-          sudo dscl . -create /Users/runner PasswordHint ""
-          echo "runner:MacPass123" | sudo chpasswd 2>/dev/null || {
-            sudo dscl . -passwd /Users/runner "MacPass123"
-          }
-          echo "PASSWORD=MacPass123" >> $GITHUB_ENV
-      
-      - name: نصب و اجرای Ngrok
-        run: |
-          curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-amd64.zip -o ngrok.zip
-          unzip -o ngrok.zip
-          sudo mv ngrok /usr/local/bin/
-          rm ngrok.zip
-          ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          brew install ngrok
+          ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
           ngrok tcp 22 > /dev/null &
-          sleep 10
+          sleep 8
           
-          # گرفتن آدرس عمومی
-          curl -s http://localhost:4040/api/tunnels | python3 -c "import sys, json; print(json.load(sys.stdin)['tunnels'][0]['public_url'])"
-      
-      - name: نمایش اطلاعات
-        run: |
           echo ""
-          echo "======= macOS با Ngrok ======="
+          echo "═══════════════════════════════════════════════════"
+          echo "🌐 آدرس عمومی Ngrok (از لاگ بالا پیدا کن)"
           echo "کاربر: runner"
-          echo "رمز: ${{ env.PASSWORD }}"
-          echo "آدرس رو از لاگ بالا پیدا کن"
-          echo "=============================="
+          echo "رمز نیازی نیست - با کلید SSH قبلی وصل شو"
+          echo "═══════════════════════════════════════════════════"
+          
           sleep 6h
