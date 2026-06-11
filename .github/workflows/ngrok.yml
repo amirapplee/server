@@ -1,30 +1,56 @@
-name: macOS-Ngrok-Simple
+name: macOS-Ngrok-Fixed
 
 on:
   workflow_dispatch:
 
 jobs:
-  macos:
+  macos-ngrok:
     runs-on: macos-latest
     timeout-minutes: 360
     
     steps:
       - name: فعال کردن SSH
-        run: sudo systemsetup -setremotelogin on
-      
-      - name: نصب Ngrok
         run: |
-          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          sudo systemsetup -setremotelogin on
+          echo "✅ SSH فعال شد"
+      
+      - name: نصب ngrok با Homebrew
+        run: |
+          # نصب
           brew install ngrok
+          
+          # احراز هویت
           ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+          
+          # اجرا در پس‌زمینه
           ngrok tcp 22 > /dev/null &
-          sleep 8
           
+          # صبر برای دریافت آدرس
+          sleep 10
+          
+          # نمایش آدرس عمومی
           echo ""
-          echo "═══════════════════════════════════════════════════"
-          echo "🌐 آدرس عمومی Ngrok (از لاگ بالا پیدا کن)"
-          echo "کاربر: runner"
-          echo "رمز نیازی نیست - با کلید SSH قبلی وصل شو"
-          echo "═══════════════════════════════════════════════════"
+          echo "════════════════════════════════════"
+          echo "🌐 آدرس عمومی Ngrok:"
+          curl -s http://localhost:4040/api/tunnels | python3 -c "import sys, json; print(json.load(sys.stdin)['tunnels'][0]['public_url'])" 2>/dev/null || echo "لطفاً چند ثانیه دیگر صبر کنید..."
+          echo "════════════════════════════════════"
+      
+      - name: نمایش اطلاعات اتصال
+        run: |
+          echo ""
+          echo "╔════════════════════════════════════╗"
+          echo "║     macOS SSH via Ngrok Ready      ║"
+          echo "╠════════════════════════════════════╣"
+          echo "║ کاربر: runner                      ║"
+          echo "║                                     ║"
+          echo "║ نحوه اتصال:                        ║"
+          echo "║ 1. آدرس را از لاگ بالا بردارید     ║"
+          echo "║ 2. ssh -p <PORT> runner@<ADDRESS>  ║"
+          echo "╚════════════════════════════════════╝"
+          echo ""
           
-          sleep 6h
+      - name: نگهداری ارتباط
+        run: |
+          echo "⏳ سشن فعال است - 6 ساعت زمان دارید"
+          echo "برای خروج Ctrl+C را بزنید"
+          sleep 360m
